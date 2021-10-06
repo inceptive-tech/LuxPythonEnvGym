@@ -545,13 +545,34 @@ class AgentPolicy(AgentWithModel):
             self.is_last_turn = True
             rewards["rew/r_city_tiles_end"] = city_tile_count
 
-            '''
-            # Example of a game win/loss reward instead
-            if game.get_winning_team() == self.team:
+            win_team = None
+            city_tile_count = [0, 0]
+            for city in game.cities.values():
+                city_tile_count[city.team] += len(city.city_cells)
+
+            if city_tile_count[Constants.TEAM.A] > city_tile_count[Constants.TEAM.B]:
+                win_team = Constants.TEAM.A
+            elif city_tile_count[Constants.TEAM.A] < city_tile_count[Constants.TEAM.B]:
+                win_team = Constants.TEAM.B
+
+            # if tied, count by units
+            unit_count = [
+                len(game.get_teams_units(Constants.TEAM.A)),
+                len(game.get_teams_units(Constants.TEAM.B)),
+            ]
+            if unit_count[Constants.TEAM.A] > unit_count[Constants.TEAM.B]:
+                win_team = Constants.TEAM.A
+            elif unit_count[Constants.TEAM.B] > unit_count[Constants.TEAM.A]:
+                win_team = Constants.TEAM.B
+
+            if win_team == self.team:
                 rewards["rew/r_game_win"] = 100.0 # Win
+            elif win_team is None:
+                rewards["rew/r_game_win"] = -10.0 # Tie
             else:
                 rewards["rew/r_game_win"] = -100.0 # Loss
-            '''
+
+
         
         reward = 0
         for name, value in rewards.items():
