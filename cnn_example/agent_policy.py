@@ -248,21 +248,21 @@ class AgentPolicy(AgentWithModel):
         for t in [team, (team + 1) % 2]:
             for u in game.state["teamStates"][t]["units"].values():
                 # 1) Unit cargo level
-                obs[1][u.pos.x][u.pos.y] = ((100 - u.get_cargo_space_left) / 100) * 255
+                obs[1][u.pos.x][u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
                 if t == team:
                     # 2) Existence of self unit(excluding the decision - making unit)
                     obs[2][u.pos.x][u.pos.y] = 255
                     # 3) Self unit cooldown level
                     obs[3][u.pos.x][u.pos.y] = (u.cooldown / 6) * 255
                     # 4) Self unit cargo level
-                    obs[4][u.pos.x][u.pos.y] = ((100 - u.get_cargo_space_left) / 100) * 255
+                    obs[4][u.pos.x][u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
                 else:
                     # 5) Existence of opponent unit
                     obs[5][u.pos.x][u.pos.y] = 255
                     # 6) Opponent unit cooldown level
                     obs[6][u.pos.x][u.pos.y] = (u.cooldown / 6) * 255
                     # 7) Opponent unit cargo level
-                    obs[7][u.pos.x][u.pos.y] = ((100 - u.get_cargo_space_left) / 100) * 255
+                    obs[7][u.pos.x][u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
 
         # City channels
         # 8) Existence of self city
@@ -297,21 +297,21 @@ class AgentPolicy(AgentWithModel):
         # 15) Self research point
         cur_research_pt = game.state["teamStates"][team]["researchPoints"]
         normal_research = min(cur_research_pt, 200) * 255 / 200
-        obs[15] = np.full(self.observation_shape[1, 3], fill_value=normal_research)
+        obs[15] = np.full(self.observation_shape[1:3], fill_value=normal_research)
 
         # 16) Opponent research point
         cur_research_pt = game.state["teamStates"][(team + 1) % 2]["researchPoints"]
         normal_research = min(cur_research_pt, 200) * 255 / 200
-        obs[16] = np.full(self.observation_shape[1, 3], fill_value=normal_research)
+        obs[16] = np.full(self.observation_shape[1:3], fill_value=normal_research)
 
         # 17) Day night cycle number
         day_length = GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"] + GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"]
         cycle = game.state["turn"] / day_length
         max_cycle = GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"] / day_length
-        obs[17] = np.full(self.observation_shape[1, 3], fill_value=cycle * 255 / max_cycle)
+        obs[17] = np.full(self.observation_shape[1:3], fill_value=cycle * 255 / max_cycle)
 
         # 18) Current turn number
-        obs[18] = np.full(self.observation_shape[1, 3], fill_value=game.state["turn"] *255 / GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"])
+        obs[18] = np.full(self.observation_shape[1:3], fill_value=game.state["turn"] *255 / GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"])
 
         # 19) Whether is it out of bounds in the map
         x_shift = (32 - game.map.width) // 2
