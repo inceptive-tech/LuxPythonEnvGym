@@ -1,0 +1,3 @@
+source_model="../cnn_example/models/futur_3_1.zip"
+source_agent="../cnn_example/agent_policy.py"
+target_name="model_3_1.tar.gz"
