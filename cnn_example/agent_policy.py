@@ -13,6 +13,7 @@ from luxai2021.game.game_constants import GAME_CONSTANTS
 from luxai2021.game.position import Position
 
 
+
 # https://codereview.stackexchange.com/questions/28207/finding-the-closest-point-to-a-list-of-points
 def closest_node(node, nodes):
     dist_2 = np.sum((nodes - node) ** 2, axis=1)
@@ -442,6 +443,33 @@ class AgentPolicy(AgentWithModel):
             self.is_last_turn = True
             rewards["rew/r_city_tiles_end"] = city_tile_count
 
+            # Curstom reward, reward for winning the game
+            # win_team = None
+            # city_tile_count = [0, 0]
+            # for city in game.cities.values():
+            #     city_tile_count[city.team] += len(city.city_cells)
+            #
+            # if city_tile_count[Constants.TEAM.A] > city_tile_count[Constants.TEAM.B]:
+            #     win_team = Constants.TEAM.A
+            # elif city_tile_count[Constants.TEAM.A] < city_tile_count[Constants.TEAM.B]:
+            #     win_team = Constants.TEAM.B
+            #
+            # # if tied, count by units
+            # unit_count = [
+            #     len(game.get_teams_units(Constants.TEAM.A)),
+            #     len(game.get_teams_units(Constants.TEAM.B)),
+            # ]
+            # if unit_count[Constants.TEAM.A] > unit_count[Constants.TEAM.B]:
+            #     win_team = Constants.TEAM.A
+            # elif unit_count[Constants.TEAM.B] > unit_count[Constants.TEAM.A]:
+            #     win_team = Constants.TEAM.B
+            #
+            # if win_team == self.team:
+            #     rewards["rew/r_game_win"] = 10.0  # Win
+            # elif win_team is None:
+            #     rewards["rew/r_game_win"] = 0  # Tie
+            # else:
+            #     rewards["rew/r_game_win"] = 0  # Loss
             '''
             # Example of a game win/loss reward instead
             if game.get_winning_team() == self.team:

@@ -117,7 +117,7 @@ def train(args):
 
     # Create a default opponent agent
     opponent = Agent()
-    # other_model = PPO.load("./models/rl_model_8557_7200000_steps")
+    # other_model = PPO.load("../examples/models/rl_model_1834_10000000_steps")
     # opponent = AgentPolicy(mode="inference", model=other_model)
 
     # Create a RL agent in training mode
