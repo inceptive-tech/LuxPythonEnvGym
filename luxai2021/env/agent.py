@@ -2,12 +2,24 @@ import sys
 import time
 
 import numpy as np
+from PIL.GimpGradientFile import curved
 from gym import spaces
+
+from ..game.actions import Action, TransferAction, MoveAction
+from ..game.cell import Cell
+from ..game.city import City
 from ..game.constants import Constants
+from ..game.game import Game, DIRECTIONS
+from ..game.game_map import GameMap
+from ..game.position import Position
+from ..game.unit import Unit
+from ..game.resource import Resource
 
 """
 Implements the base class for a training Agent
 """
+
+
 class Agent:
     def __init__(self) -> None:
         """
@@ -15,7 +27,7 @@ class Agent:
         """
         self.team = None
         self.match_controller = None
-    
+
     def game_start(self, game):
         """
         This function is called at the start of each game. Use this to
@@ -90,13 +102,14 @@ class AgentFromReplay(Agent):
     """
     Base class for an agent from a specified json replay file.
     """
+
     def __init__(self, replay=None) -> None:
         """
         Implements an agent opponent
         """
         super().__init__()
         self.replay = replay
-    
+
     def get_agent_type(self):
         """
         Returns the type of agent. Use AGENT for inference, and LEARNING for training a model.
@@ -114,30 +127,82 @@ class AgentFromReplay(Agent):
         turn = game.state["turn"]
 
         if self.replay is not None:
-            acts = self.replay['steps'][turn+1][team]["action"]
+            acts = self.replay['steps'][turn + 1][team]["action"]
             acts = [game.action_from_string(a, team) for a in acts]
             acts = [a for a in acts if a is not None]
             actions.extend(acts)
-        
+
         return actions
-        
-    
+
+
+class KaggleAgent(Agent):
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def process_turn(self, game: Game, team: int):
+        units = game.state["teamStates"][team]["units"].values()
+        cities = game.cities.values()
+        res = []
+        for unit in units:
+            if unit.can_act():
+                if not game.is_night():
+                    curCell = game.map.get_cell_by_pos(unit.pos)
+                    if curCell.is_city_tile():
+                        #If in city and not night go to forest
+                        newCell=self.__getClosestResourceCell(curCell, game.map)
+                        res.append(MoveAction(team,unit.id, unit.pos.direction_to(newCell.pos)))
+                    elif curCell.has_resource() and curCell.resource.type is Resource.Types.WOOD:
+                        # In forest we load until full, then go to the city
+                        if unit.cargo['wood'] == 100 :
+                            newCell = self.__getCityPos(unit.pos, game, unit.team)
+                            if newCell is not None:
+                                res.append(MoveAction(team,unit.id, unit.pos.direction_to(newCell.pos)))
+                    else:
+                        # Try to reach a resource
+                        newCell = self.__getClosestResourceCell(curCell, game.map)
+                        res.append(MoveAction(team, unit.id, unit.pos.direction_to(newCell.pos)))
+        #Nothing to do with cities
+        print(f'action is invalid {action} turn {self.game.state["turn"]}: {vars(action)}', file=sys.stderr)
+        return res
+
+    def __getClosestResourceCell(self, cell: Cell, map: GameMap) -> Cell:
+        resources = map.resources
+        distances = np.zeros(len(resources))
+        for i in range(len(resources)):
+            difPos = cell.pos - resources[i].pos
+
+        return resources[np.argmin(distances)]
+
+    def __getCityPos(self, pos: Position, game: Game, team: int) -> Cell:
+        """
+        We supose that there is only one city
+        :param pos:
+        :param game:
+        :return:
+        """
+        for city in game.cities.values():
+            if(city.team == team):
+                return city.city_cells[0]
+        return None
+
 
 class AgentWithModel(Agent):
     """
     Base class for a stable_baselines3 reinforcement learning agent.
     """
+
     def __init__(self, mode="train", model=None) -> None:
         """
         Implements an agent opponent
         """
         super().__init__()
         self.action_space = spaces.Discrete(10)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(10,1), dtype=np.float16)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(10, 1), dtype=np.float16)
 
         self.model = model
         self.mode = mode
-    
+
     def get_agent_type(self):
         """
         Returns the type of agent. Use AGENT for inference, and LEARNING for training a model.
@@ -146,19 +211,19 @@ class AgentWithModel(Agent):
             return Constants.AGENT_TYPE.LEARNING
         else:
             return Constants.AGENT_TYPE.AGENT
-    
+
     def get_reward(self, game, is_game_finished, is_new_turn, is_game_error):
         """
         Returns the reward function for this step of the game. Reward should be a
         delta increment to the reward, not the total current reward.
         """
         return 0
-    
+
     def get_observation(self, game, unit, city_tile, team, is_new_turn):
         """
         Implements getting a observation from the current game for this unit or city
         """
-        return np.zeros((10,1))
+        return np.zeros((10, 1))
 
     def process_turn(self, game, team):
         """
@@ -212,6 +277,7 @@ class AgentFromStdInOut(Agent):
     """
     Wrapper for an external agent where this agent's commands are coming in through standard input.
     """
+
     def __init__(self) -> None:
         """
         Implements an agent opponent
@@ -257,7 +323,7 @@ class AgentFromStdInOut(Agent):
 
             if message == "D_DONE":  # End of turn data marker
                 break
-        
+
         # Reset the game to the specified state. Don't increment turn counter on first turn of game.
         game.reset(updates=updates, increment_turn=not is_first_turn)
 
