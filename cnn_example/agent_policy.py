@@ -123,16 +123,16 @@ class AgentPolicy(AgentWithModel):
             partial(MoveAction, direction=Constants.DIRECTIONS.WEST),
             partial(MoveAction, direction=Constants.DIRECTIONS.SOUTH),
             partial(MoveAction, direction=Constants.DIRECTIONS.EAST),
-            partial(smart_transfer_to_nearby, target_type_restriction=Constants.UNIT_TYPES.CART),
+            #partial(smart_transfer_to_nearby, target_type_restriction=Constants.UNIT_TYPES.CART),
             # Transfer to nearby cart
-            partial(smart_transfer_to_nearby, target_type_restriction=Constants.UNIT_TYPES.WORKER),
+            #partial(smart_transfer_to_nearby, target_type_restriction=Constants.UNIT_TYPES.WORKER),
             # Transfer to nearby worker
             SpawnCityAction,
-            PillageAction,
+            #PillageAction,
         ]
         self.actions_cities = [
             SpawnWorkerAction,
-            SpawnCartAction,
+            #SpawnCartAction,
             ResearchAction,
         ]
         self.action_space = spaces.Discrete(max(len(self.actions_units), len(self.actions_cities)))
@@ -178,7 +178,9 @@ class AgentPolicy(AgentWithModel):
         #
         # 18) Current turn number
         # 19) Whether is it out of bounds in the map
-        self.observation_shape = (20, 32, 32)
+        #
+        # 20) Whether is this the city_tile making the decision
+        self.observation_shape = (21, 32, 32)
         self.observation_space = spaces.Box(low=0, high=255, shape=
         self.observation_shape, dtype=np.uint8)
 
@@ -237,12 +239,17 @@ class AgentPolicy(AgentWithModel):
         #
         # 18) Current turn number
         # 19) Whether is it out of bounds in the map
+        #
+        # 20) Whether is this the city_tile making the decision
         obs = np.zeros(self.observation_shape)
 
         # Update the type of this object
         #   0) Whether is this the unit making the decision
         if unit is not None:
-            obs[0] = np.full(self.observation_shape[1:3], 255)
+            obs[0][unit.pos.x][unit.pos.y] = 255
+        # 20) Whether is this the city_tile making the decision
+        if city_tile is not None:
+            obs[20][city_tile.pos.x][city_tile.pos.y] = 255
 
         # Units channels
         for t in [team, (team + 1) % 2]:
@@ -305,7 +312,7 @@ class AgentPolicy(AgentWithModel):
         obs[16] = np.full(self.observation_shape[1:3], fill_value=normal_research)
 
         # 17) Day night cycle number
-        day_length = GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"] + GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"]
+        day_length = GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"] + GAME_CONSTANTS["PARAMETERS"]["NIGHT_LENGTH"]
         cycle = game.state["turn"] / day_length
         max_cycle = GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"] / day_length
         obs[17] = np.full(self.observation_shape[1:3], fill_value=cycle * 255 / max_cycle)
@@ -430,25 +437,20 @@ class AgentPolicy(AgentWithModel):
         # Give a reward for city creation/death. 0.1 reward per city.
         rewards["rew/r_city_tiles"] = (city_tile_count - self.city_tiles_last) * 0.1
         self.city_tiles_last = city_tile_count
-
+        '''
         # Reward collecting fuel
         fuel_collected = game.stats["teamStats"][self.team]["fuelGenerated"]
         rewards["rew/r_fuel_collected"] = ((fuel_collected - self.fuel_collected_last) / 20000)
         self.fuel_collected_last = fuel_collected
-
+        '''
         # Give a reward of 1.0 per city tile alive at the end of the game
         rewards["rew/r_city_tiles_end"] = 0
         if is_game_finished:
             self.is_last_turn = True
             rewards["rew/r_city_tiles_end"] = city_tile_count
+            if city_tile_count is 0:
+                rewards["rew/r_city_tiles_end"] = -2
 
-            '''
-            # Example of a game win/loss reward instead
-            if game.get_winning_team() == self.team:
-                rewards["rew/r_game_win"] = 100.0 # Win
-            else:
-                rewards["rew/r_game_win"] = -100.0 # Loss
-            '''
 
         reward = 0
         for name, value in rewards.items():
