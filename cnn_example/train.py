@@ -3,11 +3,14 @@ import glob
 import os
 import sys
 import random
+from builtins import object
 from typing import Callable
 
 import gym
 import torch as th
 import torch.nn as nn
+import torch.nn.functional as F
+
 
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
@@ -22,6 +25,22 @@ from luxai2021.env.agent import Agent
 from luxai2021.env.lux_env import LuxEnvironment
 from luxai2021.game.constants import LuxMatchConfigs_Default
 
+
+class BasicConv2d(nn.Module):
+    def __init__(self, input_dim, output_dim, kernel_size, bn):
+        super().__init__()
+        self.conv = nn.Conv2d(
+            input_dim, output_dim,
+            kernel_size=kernel_size,
+            padding=(kernel_size[0] // 2, kernel_size[1] // 2)
+        )
+        self.bn = nn.BatchNorm2d(output_dim) if bn else None
+
+    def forward(self, x):
+        h = self.conv(x)
+        h = self.bn(h) if self.bn is not None else h
+        return h
+
 class CustomCNN(BaseFeaturesExtractor):
     """
     :param observation_space: (gym.Space)
@@ -29,29 +48,23 @@ class CustomCNN(BaseFeaturesExtractor):
         This corresponds to the number of unit for the last layer.
     """
 
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 32):
         super(CustomCNN, self).__init__(observation_space, features_dim)
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
         n_input_channels = observation_space.shape[0]
-        self.cnn = nn.Sequential(
-            nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
-            nn.ReLU(),
-            nn.Flatten(),
-        )
-
-        # Compute shape by doing one forward pass
-        with th.no_grad():
-            n_flatten = self.cnn(
-                th.as_tensor(observation_space.sample()[None]).float()
-            ).shape[1]
-
-        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
+        layers, filters = 8, 32
+        self.conv0 = BasicConv2d(n_input_channels, filters, (3, 3), True)
+        self.blocks = nn.ModuleList([BasicConv2d(filters, filters, (3, 3), True) for _ in range(layers)])
+        self.head_p = nn.Linear(filters, features_dim, bias=False)
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
-        return self.linear(self.cnn(observations))
+        h = F.relu_(self.conv0(observations))
+        for block in self.blocks:
+            h = F.relu_(h + block(h))
+        h_head = (h * observations[:, :1]).view(h.size(0), h.size(1), -1).sum(-1)
+        p = self.head_p(h_head)
+        return p
 
 
 if sys.version_info < (3, 7) or sys.version_info > (3, 7):
@@ -116,9 +129,9 @@ def train(args):
     configs = LuxMatchConfigs_Default
 
     # Create a default opponent agent
-    opponent = Agent()
-    # other_model = PPO.load("../examples/models/rl_model_1834_10000000_steps")
-    # opponent = AgentPolicy(mode="inference", model=other_model)
+    # opponent = Agent()
+    other_model = PPO.load("./models/rl_model_model6_luxnet_againstself_fromzero_ppo12_4000000_steps", device='cpu')
+    opponent = AgentPolicy(mode="inference", model=other_model)
 
     # Create a RL agent in training mode
     player = AgentPolicy(mode="train")
@@ -149,7 +162,8 @@ def train(args):
     else:
         policy_kwargs = dict(
             features_extractor_class=CustomCNN,
-            features_extractor_kwargs=dict(features_dim=128),
+            features_extractor_kwargs=dict(features_dim=32),
+            net_arch=[dict(pi=[16, 8], vf=[16, 8])],
         )
         model = PPO("CnnPolicy",
                     env,
@@ -160,7 +174,8 @@ def train(args):
                     gae_lambda=args.gae_lambda,
                     batch_size=args.batch_size,
                     n_steps=args.n_steps,
-                    policy_kwargs=policy_kwargs
+                    policy_kwargs=policy_kwargs,
+                    device='auto'
                     )
         # model = DQN("CnnPolicy",
         #             env,
@@ -198,7 +213,7 @@ def train(args):
     if not os.path.exists(f'models/rl_model_{run_id}_{args.step_count}_steps.zip'):
         model.save(path=f'models/rl_model_{run_id}_{args.step_count}_steps.zip')
     print("Done training model.")
-
+    '''
     # Inference the model
     print("Inference model policy with rendering...")
     saves = glob.glob(f'models/rl_model_{run_id}_*_steps.zip')
@@ -216,7 +231,7 @@ def train(args):
             print("Episode done, resetting.")
             obs = env.reset()
     print("Done")
-
+    '''
     '''
     # Learn with self-play against the learned model as an opponent now
     print("Training model with self-play against last version of model...")

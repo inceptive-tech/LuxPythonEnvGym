@@ -13,7 +13,6 @@ from luxai2021.game.game_constants import GAME_CONSTANTS
 from luxai2021.game.position import Position
 
 
-
 # https://codereview.stackexchange.com/questions/28207/finding-the-closest-point-to-a-list-of-points
 def closest_node(node, nodes):
     dist_2 = np.sum((nodes - node) ** 2, axis=1)
@@ -124,16 +123,16 @@ class AgentPolicy(AgentWithModel):
             partial(MoveAction, direction=Constants.DIRECTIONS.WEST),
             partial(MoveAction, direction=Constants.DIRECTIONS.SOUTH),
             partial(MoveAction, direction=Constants.DIRECTIONS.EAST),
-            #partial(smart_transfer_to_nearby, target_type_restriction=Constants.UNIT_TYPES.CART),
+            # partial(smart_transfer_to_nearby, target_type_restriction=Constants.UNIT_TYPES.CART),
             # Transfer to nearby cart
-            #partial(smart_transfer_to_nearby, target_type_restriction=Constants.UNIT_TYPES.WORKER),
+            # partial(smart_transfer_to_nearby, target_type_restriction=Constants.UNIT_TYPES.WORKER),
             # Transfer to nearby worker
             SpawnCityAction,
-            #PillageAction,
+            # PillageAction,
         ]
         self.actions_cities = [
             SpawnWorkerAction,
-            #SpawnCartAction,
+            # SpawnCartAction,
             ResearchAction,
         ]
         self.action_space = spaces.Discrete(max(len(self.actions_units), len(self.actions_cities)))
@@ -182,8 +181,7 @@ class AgentPolicy(AgentWithModel):
         #
         # 20) Whether is this the city_tile making the decision
         self.observation_shape = (21, 32, 32)
-        self.observation_space = spaces.Box(low=0, high=255, shape=
-        self.observation_shape, dtype=np.uint8)
+        self.observation_space = spaces.Box(low=0, high=255, shape=self.observation_shape, dtype=np.uint8)
 
     def get_agent_type(self):
         """
@@ -242,35 +240,37 @@ class AgentPolicy(AgentWithModel):
         # 19) Whether is it out of bounds in the map
         #
         # 20) Whether is this the city_tile making the decision
-        obs = np.zeros(self.observation_shape)
+        obs = np.zeros(self.observation_shape, dtype=np.uint8)
+        x_shift = (32 - game.map.width) // 2
+        y_shift = (32 - game.map.height) // 2
 
         # Update the type of this object
         #   0) Whether is this the unit making the decision
         if unit is not None:
-            obs[0][unit.pos.x][unit.pos.y] = 255
+            obs[0][x_shift + unit.pos.x][y_shift + unit.pos.y] = 255
         # 20) Whether is this the city_tile making the decision
         if city_tile is not None:
-            obs[20][city_tile.pos.x][city_tile.pos.y] = 255
+            obs[20][x_shift + city_tile.pos.x][y_shift + city_tile.pos.y] = 255
 
         # Units channels
         for t in [team, (team + 1) % 2]:
             for u in game.state["teamStates"][t]["units"].values():
                 # 1) Unit cargo level
-                obs[1][u.pos.x][u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
+                obs[1][x_shift + u.pos.x][y_shift + u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
                 if t == team:
                     # 2) Existence of self unit(excluding the decision - making unit)
-                    obs[2][u.pos.x][u.pos.y] = 255
+                    obs[2][x_shift + u.pos.x][y_shift + u.pos.y] = 255
                     # 3) Self unit cooldown level
-                    obs[3][u.pos.x][u.pos.y] = (u.cooldown / 6) * 255
+                    obs[3][x_shift + u.pos.x][y_shift + u.pos.y] = (u.cooldown / 6) * 255
                     # 4) Self unit cargo level
-                    obs[4][u.pos.x][u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
+                    obs[4][x_shift + u.pos.x][y_shift + u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
                 else:
                     # 5) Existence of opponent unit
-                    obs[5][u.pos.x][u.pos.y] = 255
+                    obs[5][x_shift + u.pos.x][y_shift + u.pos.y] = 255
                     # 6) Opponent unit cooldown level
-                    obs[6][u.pos.x][u.pos.y] = (u.cooldown / 6) * 255
+                    obs[6][x_shift + u.pos.x][y_shift + u.pos.y] = (u.cooldown / 6) * 255
                     # 7) Opponent unit cargo level
-                    obs[7][u.pos.x][u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
+                    obs[7][x_shift + u.pos.x][y_shift + u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
 
         # City channels
         # 8) Existence of self city
@@ -281,49 +281,49 @@ class AgentPolicy(AgentWithModel):
             for cell in city.city_cells:
                 if city.team == team:
                     # 8) Existence of self city
-                    obs[8][cell.pos.x][cell.pos.y] = 255
+                    obs[8][x_shift + cell.pos.x][y_shift + cell.pos.y] = 255
                     # 9) Self city tile night survival duration
-                    obs[9][cell.pos.x][cell.pos.y] = city_survival
+                    obs[9][x_shift + cell.pos.x][y_shift + cell.pos.y] = city_survival
                 else:
                     # 10) Existence of opponent city tile
-                    obs[10][cell.pos.x][cell.pos.y] = 255
+                    obs[10][x_shift + cell.pos.x][y_shift + cell.pos.y] = 255
                     # 11) Opponent city tile night survival duration
-                    obs[11][cell.pos.x][cell.pos.y] = city_survival
+                    obs[11][x_shift + cell.pos.x][y_shift + cell.pos.y] = city_survival
 
         # Resource levels
         for cell in game.map.resources:
             # 12) Resource wood level
             if cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
-                obs[12][cell.pos.x][cell.pos.y] = cell.resource.amount * 255 / 800
+                obs[12][x_shift + cell.pos.x][y_shift + cell.pos.y] = cell.resource.amount * 255 / 800
             # 13) Resource coal level
             elif cell.resource.type == Constants.RESOURCE_TYPES.COAL:
-                obs[13][cell.pos.x][cell.pos.y] = cell.resource.amount * 255 / 800
+                obs[13][x_shift + cell.pos.x][y_shift + cell.pos.y] = cell.resource.amount * 255 / 800
             # 14) Resource  uranium level
             else:
-                obs[14][cell.pos.x][cell.pos.y] = cell.resource.amount * 255 / 800
+                obs[14][x_shift + cell.pos.x][y_shift + cell.pos.y] = cell.resource.amount * 255 / 800
 
         # 15) Self research point
         cur_research_pt = game.state["teamStates"][team]["researchPoints"]
         normal_research = min(cur_research_pt, 200) * 255 / 200
-        obs[15] = np.full(self.observation_shape[1:3], fill_value=normal_research)
+        obs[15] = np.full(self.observation_shape[1:3], fill_value=normal_research, dtype=np.uint8)
 
         # 16) Opponent research point
         cur_research_pt = game.state["teamStates"][(team + 1) % 2]["researchPoints"]
         normal_research = min(cur_research_pt, 200) * 255 / 200
-        obs[16] = np.full(self.observation_shape[1:3], fill_value=normal_research)
+        obs[16] = np.full(self.observation_shape[1:3], fill_value=normal_research, dtype=np.uint8)
 
         # 17) Day night cycle number
         day_length = GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"] + GAME_CONSTANTS["PARAMETERS"]["NIGHT_LENGTH"]
         cycle = game.state["turn"] / day_length
         max_cycle = GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"] / day_length
-        obs[17] = np.full(self.observation_shape[1:3], fill_value=cycle * 255 / max_cycle)
+        obs[17] = np.full(self.observation_shape[1:3], fill_value=cycle * 255 / max_cycle, dtype=np.uint8)
 
         # 18) Current turn number
-        obs[18] = np.full(self.observation_shape[1:3], fill_value=game.state["turn"] *255 / GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"])
+        obs[18] = np.full(self.observation_shape[1:3],
+                          fill_value=game.state["turn"] * 255 / GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"],
+                          dtype=np.uint8)
 
         # 19) Whether is it out of bounds in the map
-        x_shift = (32 - game.map.width) // 2
-        y_shift = (32 - game.map.height) // 2
         obs[19, x_shift:32 - x_shift, y_shift:32 - y_shift] = 255
 
         return obs
@@ -345,7 +345,7 @@ class AgentPolicy(AgentWithModel):
                 x = unit.pos.x
                 y = unit.pos.y
 
-            if city_tile != None:
+            if city_tile is not None:
                 action = self.actions_cities[action_code % len(self.actions_cities)](
                     game=game,
                     unit_id=unit.id if unit else None,
@@ -395,6 +395,7 @@ class AgentPolicy(AgentWithModel):
         self.units_last = 0
         self.city_tiles_last = 0
         self.fuel_collected_last = 0
+        self.researchPoints_last = 0
 
     def get_reward(self, game, is_game_finished, is_new_turn, is_game_error):
         """
@@ -412,6 +413,7 @@ class AgentPolicy(AgentWithModel):
 
         # Get some basic stats
         unit_count = len(game.state["teamStates"][self.team]["units"])
+        researchPoints = game.state["teamStates"][self.team]["researchPoints"]
 
         city_count = 0
         city_count_opponent = 0
@@ -431,12 +433,19 @@ class AgentPolicy(AgentWithModel):
 
         rewards = {}
 
+
+        unit_reward = 0.05;
         # Give a reward for unit creation/death. 0.05 reward per unit.
-        rewards["rew/r_units"] = (unit_count - self.units_last) * 0.05
+        rewards["rew/r_units_created"] = max(unit_count - self.units_last, 0) * unit_reward
+        rewards["rew/r_units_lost"] = min(unit_count - self.units_last, 0) * unit_reward * 1.25
         self.units_last = unit_count
+        # reward for research
+        rewards["rew/r_research"] = (researchPoints - self.researchPoints_last) * unit_reward * (0 if researchPoints > 200 else (0.5 if researchPoints > 50 else 0.75))
+        self.researchPoints_last = researchPoints
+
 
         # Give a reward for city creation/death. 0.1 reward per city.
-        rewards["rew/r_city_tiles"] = (city_tile_count - self.city_tiles_last) * 0.1
+        rewards["rew/r_city_tiles"] = (city_tile_count - self.city_tiles_last) * unit_reward * 2
         self.city_tiles_last = city_tile_count
         '''
         # Reward collecting fuel

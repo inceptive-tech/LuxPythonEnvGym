@@ -146,22 +146,35 @@ class KaggleAgent(Agent):
         res = []
         for unit in units:
             if unit.can_act():
+                curCell = game.map.get_cell_by_pos(unit.pos)
                 if not game.is_night():
-                    curCell = game.map.get_cell_by_pos(unit.pos)
                     if curCell.is_city_tile():
                         #If in city and not night go to forest
                         newCell=self.__getClosestResourceCell(curCell, game.map)
-                        res.append(MoveAction(team,unit.id, unit.pos.direction_to(newCell.pos)))
+                        res.append(MoveAction(team, unit.id, unit.pos.direction_to(newCell.pos)))
                     elif curCell.has_resource() and curCell.resource.type is Resource.Types.WOOD:
                         # In forest we load until full, then go to the city
-                        if unit.cargo['wood'] == 100 :
+                        if unit.cargo['wood'] == 100:
                             newCell = self.__getCityPos(unit.pos, game, unit.team)
                             if newCell is not None:
-                                res.append(MoveAction(team,unit.id, unit.pos.direction_to(newCell.pos)))
+                                res.append(MoveAction(team, unit.id, unit.pos.direction_to(newCell.pos)))
                     else:
-                        # Try to reach a resource
-                        newCell = self.__getClosestResourceCell(curCell, game.map)
-                        res.append(MoveAction(team, unit.id, unit.pos.direction_to(newCell.pos)))
+                        if unit.cargo['wood'] == 100:
+                            newCell = self.__getCityPos(unit.pos, game, unit.team)
+                            if newCell is not None:
+                                res.append(MoveAction(team, unit.id, unit.pos.direction_to(newCell.pos)))
+                        else :
+                            # Try to reach a resource
+                            newCell = self.__getClosestResourceCell(curCell, game.map)
+                            res.append(MoveAction(team, unit.id, unit.pos.direction_to(newCell.pos)))
+
+                else:
+                    if curCell.has_resource() and curCell.resource.type is Resource.Types.WOOD:
+                        pass
+                    else:
+                        newCell = self.__getCityPos(unit.pos, game, unit.team)
+                        if newCell is not None:
+                            res.append(MoveAction(team, unit.id, unit.pos.direction_to(newCell.pos)))
         #Nothing to do with cities
         return res
 
@@ -169,7 +182,7 @@ class KaggleAgent(Agent):
         resources = map.resources
         distances = np.zeros(len(resources))
         for i in range(len(resources)):
-            difPos = cell.pos - resources[i].pos
+            distances[i] = cell.pos - resources[i].pos
 
         return resources[np.argmin(distances)]
 
@@ -181,7 +194,7 @@ class KaggleAgent(Agent):
         :return:
         """
         for city in game.cities.values():
-            if(city.team == team):
+            if city.team == team:
                 return city.city_cells[0]
         return None
 
