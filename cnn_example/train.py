@@ -66,19 +66,6 @@ class CustomCNN(BaseFeaturesExtractor):
         p = self.head_p(h_head)
         return p
 
-
-if sys.version_info < (3, 7) or sys.version_info > (3, 7):
-    os.system("")
-
-
-    class style():
-        YELLOW = '\033[93m'
-
-
-    print(style.YELLOW + "Warning, you are using python" + str(sys.version_info.major) + "." + str(
-        sys.version_info.minor) + ", to submit to kaggle consider switching to python3.7.")
-
-
 # https://stable-baselines3.readthedocs.io/en/master/guide/examples.html?highlight=SubprocVecEnv#multiprocessing-unleashing-the-power-of-vectorized-environments
 def make_env(local_env, rank, seed=0):
     """
@@ -109,8 +96,7 @@ def get_command_line_arguments():
     parser.add_argument('--gae_lambda', help='GAE Lambda', type=float, default=0.95)
     parser.add_argument('--batch_size', help='batch_size', type=int, default=2048)  # 64
     parser.add_argument('--step_count', help='Total number of steps to train', type=int, default=10000000)
-    parser.add_argument('--n_steps', help='Number of experiences to gather before each learning period', type=int,
-                        default=2048 * 8)
+    parser.add_argument('--n_steps', help='Number of experiences to gather before each learning period', type=int, default=2048)
     parser.add_argument('--path', help='Path to a checkpoint to load to resume training', type=str, default=None)
     parser.add_argument('--n_envs', help='Number of parallel environments to use in training', type=int, default=1)
     args = parser.parse_args()
@@ -184,11 +170,20 @@ def train(args):
 
     callbacks = []
 
-    # Save a checkpoint every 100K steps
+    # Save a checkpoint and 5 match replay files every 100K steps
+    player_replay = AgentPolicy(mode="inference", model=model)
     callbacks.append(
-        CheckpointCallback(save_freq=100000,
-                           save_path='./models/',
-                           name_prefix=f'rl_model_{run_id}')
+        SaveReplayAndModelCallback(
+                                save_freq=100000,
+                                save_path='./models/',
+                                name_prefix=f'model{run_id}',
+                                replay_env=LuxEnvironment(
+                                                configs=configs,
+                                                learning_agent=player_replay,
+                                                opponent_agent=Agent()
+                                ),
+                                replay_num_episodes=5
+                            )
     )
 
     # Since reward metrics don't work for multi-environment setups, we add an evaluation logger
@@ -254,6 +249,15 @@ def train(args):
 
 
 if __name__ == "__main__":
+    if sys.version_info < (3,7) or sys.version_info >= (3,8):
+        os.system("")
+        class style():
+            YELLOW = '\033[93m'
+        version = str(sys.version_info.major) + "." + str(sys.version_info.minor)
+        message = f'/!\ Warning, python{version} detected, you will need to use python3.7 to submit to kaggle.'
+        message = style.YELLOW + message
+        print(message)
+
     # Get the command line arguments
     local_args = get_command_line_arguments()
 
