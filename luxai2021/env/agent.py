@@ -163,7 +163,6 @@ class KaggleAgent(Agent):
                         newCell = self.__getClosestResourceCell(curCell, game.map)
                         res.append(MoveAction(team, unit.id, unit.pos.direction_to(newCell.pos)))
         #Nothing to do with cities
-        print(f'action is invalid {action} turn {self.game.state["turn"]}: {vars(action)}', file=sys.stderr)
         return res
 
     def __getClosestResourceCell(self, cell: Cell, map: GameMap) -> Cell:
