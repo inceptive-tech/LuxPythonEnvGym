@@ -359,6 +359,9 @@ class AgentPolicy(AgentWithModel):
                     x=x,
                     y=y
                 )
+                if isinstance(action, ResearchAction) and game.state["teamStates"][self.team]["researchPoints"] > 200:
+                    return None
+
             else:
                 action = self.actions_units[action_code % len(self.actions_units)](
                     game=game,
@@ -374,7 +377,7 @@ class AgentPolicy(AgentWithModel):
             return action
         except Exception as e:
             # Not a valid action
-            print(e)
+            print(e, file=sys.stderr)
             return None
 
     def take_action(self, action_code, game, unit=None, city_tile=None, team=None):
@@ -383,7 +386,8 @@ class AgentPolicy(AgentWithModel):
             actionCode: Index of action to take into the action array.
         """
         action = self.action_code_to_action(action_code, game, unit, city_tile, team)
-        self.match_controller.take_action(action)
+        if action:
+            self.match_controller.take_action(action)
 
     def game_start(self, game):
         """

@@ -36,7 +36,7 @@ class ResourceClusterer:
             for cur_cell in cur_cluster.cells:
                 for adj in game.map.get_adjacent_cells(cur_cell):
                     if adj.city_tile is not None and adj.city_tile.team == team:
-                        res = cur_cluster.reward_value(unit_reward)
+                        res += cur_cluster.reward_value(unit_reward)
                         ended_cluster = True
                     if ended_cluster:
                         break
