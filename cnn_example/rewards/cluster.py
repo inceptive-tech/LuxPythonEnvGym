@@ -1,5 +1,3 @@
-from torch.onnx.symbolic_opset9 import to
-
 from luxai2021.game.cell import Cell
 from luxai2021.game.game_map import GameMap
 from luxai2021.game.resource import Resource

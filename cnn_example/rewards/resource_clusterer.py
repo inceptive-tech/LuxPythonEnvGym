@@ -1,9 +1,7 @@
-from turtle import undo
-
 from luxai2021.game.cell import Cell
 from luxai2021.game.position import Position
 from luxai2021.game.game import Game
-from cluster import Cluster
+from rewards.cluster import Cluster
 
 
 class ResourceClusterer:
@@ -36,7 +34,7 @@ class ResourceClusterer:
             for cur_cell in cur_cluster.cells:
                 for adj in game.map.get_adjacent_cells(cur_cell):
                     if adj.city_tile is not None and adj.city_tile.team == team:
-                        res += cur_cluster.reward_value(unit_reward)
+                        res += cur_cluster.reward_value(unit_reward, game, team)
                         ended_cluster = True
                     if ended_cluster:
                         break
