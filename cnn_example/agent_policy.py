@@ -7,10 +7,13 @@ import random
 import numpy as np
 from gym import spaces
 
+from cnn_example.rewards import resource_clusterer
 from luxai2021.env.agent import Agent, AgentWithModel
 from luxai2021.game.actions import *
 from luxai2021.game.game_constants import GAME_CONSTANTS
 from luxai2021.game.position import Position
+
+from rewards.resource_clusterer import ResourceClusterer
 
 
 # https://codereview.stackexchange.com/questions/28207/finding-the-closest-point-to-a-list-of-points
@@ -396,6 +399,7 @@ class AgentPolicy(AgentWithModel):
         self.city_tiles_last = 0
         self.fuel_collected_last = 0
         self.researchPoints_last = 0
+        self.resource_clusterer = ResourceClusterer(game)
 
     def get_reward(self, game, is_game_finished, is_new_turn, is_game_error):
         """
@@ -455,6 +459,7 @@ class AgentPolicy(AgentWithModel):
         '''
         # Give a reward of 1.0 per city tile alive at the end of the game
         rewards["rew/r_city_tiles_end"] = 0
+        rewards["rew/r_clustered_resources"] = self.resource_clusterer.getReward(self.resource_clusterer, game, self.team, unit_reward)
         if is_game_finished:
             self.is_last_turn = True
             rewards["rew/r_city_tiles_end"] = city_tile_count
