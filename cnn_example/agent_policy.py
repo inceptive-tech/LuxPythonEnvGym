@@ -448,7 +448,8 @@ class AgentPolicy(AgentWithModel):
 
 
         # Give a reward for city creation/death. 0.1 reward per city.
-        rewards["rew/r_city_tiles"] = (city_tile_count - self.city_tiles_last) * unit_reward * 2
+        rewards["rew/r_city_tiles_created"] = max(city_tile_count - self.city_tiles_last, 0) * unit_reward * 2
+        rewards["rew/r_city_tiles_lost"] = min(city_tile_count - self.city_tiles_last, 0) * unit_reward * 2 * 1.5
         self.city_tiles_last = city_tile_count
         '''
         # Reward collecting fuel

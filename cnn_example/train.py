@@ -21,7 +21,7 @@ from stable_baselines3.common.utils import set_random_seed, get_schedule_fn
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from agent_policy import AgentPolicy
-from luxai2021.env.agent import Agent
+from luxai2021.env.agent import Agent, KaggleAgent
 from luxai2021.env.lux_env import LuxEnvironment, SaveReplayAndModelCallback
 from luxai2021.game.constants import LuxMatchConfigs_Default
 
@@ -115,9 +115,9 @@ def train(args):
     configs = LuxMatchConfigs_Default
 
     # Create a default opponent agent
-    # opponent = Agent()
-    other_model = PPO.load("./models/rl_model_model6_luxnet_againstself_fromzero_ppo12_4000000_steps", device='cpu')
-    opponent = AgentPolicy(mode="inference", model=other_model)
+    opponent = KaggleAgent()
+    #other_model = PPO.load("./models/modelmodel6_luxnet_againstself6b3m_clusterrew_citypen_fromself_ppo16_step1800000", device='cpu')
+    #opponent = AgentPolicy(mode="inference", model=other_model)
 
     # Create a RL agent in training mode
     player = AgentPolicy(mode="train")
@@ -180,7 +180,7 @@ def train(args):
                                 replay_env=LuxEnvironment(
                                                 configs=configs,
                                                 learning_agent=player_replay,
-                                                opponent_agent=Agent()
+                                                opponent_agent=KaggleAgent()
                                 ),
                                 replay_num_episodes=5
                             )
