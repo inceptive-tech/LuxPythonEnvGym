@@ -232,7 +232,7 @@ class AgentPolicy(AgentWithModel):
         #
         # 16) Opponent research point
         #
-        # 17) Day night cycle number
+        # 17) Day night cycle ratio
         #
         # 18) Current turn number
         # 19) Whether is it out of bounds in the map
@@ -310,11 +310,9 @@ class AgentPolicy(AgentWithModel):
         normal_research = min(cur_research_pt, 200) * 255 / 200
         obs[16] = np.full(self.observation_shape[1:3], fill_value=normal_research, dtype=np.uint8)
 
-        # 17) Day night cycle number
+        # 17) Day night cycle ratio
         day_length = GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"] + GAME_CONSTANTS["PARAMETERS"]["NIGHT_LENGTH"]
-        cycle = game.state["turn"] / day_length
-        max_cycle = GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"] / day_length
-        obs[17] = np.full(self.observation_shape[1:3], fill_value=cycle * 255 / max_cycle, dtype=np.uint8)
+        obs[17] = np.full(self.observation_shape[1:3], fill_value=(game.state["turn"] % day_length) * 255 / day_length, dtype=np.uint8)
 
         # 18) Current turn number
         obs[18] = np.full(self.observation_shape[1:3],
@@ -414,10 +412,16 @@ class AgentPolicy(AgentWithModel):
             # Only apply rewards at the start of each turn or at game end
             return 0
 
+        day_length = GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"] + GAME_CONSTANTS["PARAMETERS"]["NIGHT_LENGTH"]
+
         # Get some basic stats
         unit_count = len(game.state["teamStates"][self.team]["units"])
         researchPoints = game.state["teamStates"][self.team]["researchPoints"]
 
+
+        unit_reward = 0.05;
+        rewards = {}
+        rewards["rew/r_city_fuel"] = 0
         city_count = 0
         city_count_opponent = 0
         city_tile_count = 0
@@ -428,16 +432,28 @@ class AgentPolicy(AgentWithModel):
             else:
                 city_count_opponent += 1
 
+            if city.team == self.team:
+                city_fuel = city.fuel
+                fuel_usage = city.get_light_upkeep()
+                fuel_required_full_night = GAME_CONSTANTS["PARAMETERS"]["NIGHT_LENGTH"] * fuel_usage
+                fuel_required_next_night = fuel_required_full_night
+                if game.state["turn"] % day_length > GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"]:
+                    fuel_required_next_night = (day_length - game.state["turn"] % day_length) * fuel_usage
+                if city_fuel < fuel_required_next_night:
+                    rewards["rew/r_city_fuel"] -= unit_reward * len(city.city_cells) / 100
+                elif city_fuel < fuel_required_next_night + fuel_required_full_night:
+                    rewards["rew/r_city_fuel"] += unit_reward * len(city.city_cells) / 100
+                else:
+                    rewards["rew/r_city_fuel"] += 2 * unit_reward * len(city.city_cells) / 100
+
             for cell in city.city_cells:
                 if city.team == self.team:
                     city_tile_count += 1
                 else:
                     city_tile_count_opponent += 1
 
-        rewards = {}
 
 
-        unit_reward = 0.05;
         # Give a reward for unit creation/death. 0.05 reward per unit.
         rewards["rew/r_units_created"] = max(unit_count - self.units_last, 0) * unit_reward
         rewards["rew/r_units_lost"] = min(unit_count - self.units_last, 0) * unit_reward * 1.25
