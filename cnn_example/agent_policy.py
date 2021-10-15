@@ -275,7 +275,7 @@ class AgentPolicy(AgentWithModel):
         for city in game.cities.values():
             fuel = city.fuel
             light_upkeep = city.get_light_upkeep()
-            city_survival = (min(fuel / light_upkeep, 10) / 10) * 255
+            city_survival = (min(fuel / light_upkeep, 30) / 30) * 255
             for cell in city.city_cells:
                 if city.team == team:
                     # 8) Existence of self city
@@ -396,6 +396,7 @@ class AgentPolicy(AgentWithModel):
         self.city_tiles_last = 0
         self.fuel_collected_last = 0
         self.researchPoints_last = 0
+        self.city_fuel_last = {}
         self.resource_clusterer = ResourceClusterer(game)
 
     def get_reward(self, game, is_game_finished, is_new_turn, is_game_error):
@@ -433,18 +434,25 @@ class AgentPolicy(AgentWithModel):
                 city_count_opponent += 1
 
             if city.team == self.team:
+                city_id = city.id
                 city_fuel = city.fuel
-                fuel_usage = city.get_light_upkeep()
-                fuel_required_full_night = GAME_CONSTANTS["PARAMETERS"]["NIGHT_LENGTH"] * fuel_usage
-                fuel_required_next_night = fuel_required_full_night
-                if game.state["turn"] % day_length > GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"]:
-                    fuel_required_next_night = (day_length - game.state["turn"] % day_length) * fuel_usage
-                if city_fuel < fuel_required_next_night:
-                    rewards["rew/r_city_fuel"] -= unit_reward * len(city.city_cells) / 100
-                elif city_fuel < fuel_required_next_night + fuel_required_full_night:
-                    rewards["rew/r_city_fuel"] += unit_reward * len(city.city_cells) / 100
-                else:
-                    rewards["rew/r_city_fuel"] += 2 * unit_reward * len(city.city_cells) / 100
+                if city_id in self.city_fuel_last:
+                    fuel_diff = self.city_fuel_last[city_id] - city_fuel
+                    fuel_usage = city.get_light_upkeep()
+                    fuel_required_full_night = GAME_CONSTANTS["PARAMETERS"]["NIGHT_LENGTH"] * fuel_usage
+                    fuel_required_next_night = fuel_required_full_night
+                    if game.state["turn"] % day_length > GAME_CONSTANTS["PARAMETERS"]["DAY_LENGTH"]:
+                        fuel_required_next_night = (day_length - game.state["turn"] % day_length) * fuel_usage
+
+                    if fuel_diff > 0:
+                        if city_fuel < fuel_required_next_night:
+                            rewards["rew/r_city_fuel"] += unit_reward * len(city.city_cells) / 100
+                        elif city_fuel < fuel_required_next_night + fuel_required_full_night:
+                            rewards["rew/r_city_fuel"] += 0.5 * unit_reward * len(city.city_cells) / 100
+                        elif city_fuel < fuel_required_next_night + 2 * fuel_required_full_night:
+                            rewards["rew/r_city_fuel"] += 0.1 * unit_reward * len(city.city_cells) / 100
+
+                self.city_fuel_last[city_id] = city_fuel
 
             for cell in city.city_cells:
                 if city.team == self.team:
