@@ -96,7 +96,7 @@ def get_command_line_arguments():
     parser.add_argument('--gae_lambda', help='GAE Lambda', type=float, default=0.95)
     parser.add_argument('--batch_size', help='batch_size', type=int, default=2048)  # 64
     parser.add_argument('--step_count', help='Total number of steps to train', type=int, default=10000000)
-    parser.add_argument('--n_steps', help='Number of experiences to gather before each learning period', type=int, default=2048)
+    parser.add_argument('--n_steps', help='Number of experiences to gather before each learning period', type=int, default=2048*8)
     parser.add_argument('--path', help='Path to a checkpoint to load to resume training', type=str, default=None)
     parser.add_argument('--n_envs', help='Number of parallel environments to use in training', type=int, default=1)
     args = parser.parse_args()
@@ -115,9 +115,9 @@ def train(args):
     configs = LuxMatchConfigs_Default
 
     # Create a default opponent agent
-    opponent = KaggleAgent()
-    #other_model = PPO.load("./models/modelmodel6_luxnet_againstself6b3m_clusterrew_citypen_fromself_ppo16_step1800000", device='cpu')
-    #opponent = AgentPolicy(mode="inference", model=other_model)
+    # opponent = KaggleAgent()
+    other_model = PPO.load("./ref_models/model_7_3", device='cpu')
+    opponent = AgentPolicy(mode="inference", model=other_model)
 
     # Create a RL agent in training mode
     player = AgentPolicy(mode="train")
