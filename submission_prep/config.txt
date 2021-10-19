@@ -1,3 +1,4 @@
-source_model="../cnn_example/models/futur_3_1.zip"
+source_model="../cnn_example/ref_models/model_7_3.zip"
 source_agent="../cnn_example/agent_policy.py"
-target_name="model_3_1.tar.gz"
+rewards_location="../cnn_example/rewards"
+target_name="model_7_3.tar.gz"
