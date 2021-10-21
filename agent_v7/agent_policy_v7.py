@@ -141,21 +141,18 @@ class AgentPolicyV7(AgentWithModel):
         # 0) Whether is this the unit making the decision
         #
         # 1) Unit cargo level
-        # 21) Unit fuel level
         #
         # 2) Existence of self unit(excluding the decision - making unit)
         #
         # 3) Self unit cooldown level
         #
         # 4) Self unit cargo level
-        # 22) Self unit fuel level
         #
         # 5) Existence of opponent unit
         #
         # 6) Opponent unit cooldown level
         #
         # 7) Opponent unit cargo level
-        # 23) Opponent unit fuel level
         #
         # 8) Existence of self city
         #
@@ -181,7 +178,7 @@ class AgentPolicyV7(AgentWithModel):
         # 19) Whether is it out of bounds in the map
         #
         # 20) Whether is this the city_tile making the decision
-        self.observation_shape = (24, 32, 32)
+        self.observation_shape = (21, 32, 32)
         self.observation_space = spaces.Box(low=0, high=255, shape=self.observation_shape, dtype=np.uint8)
 
     def get_agent_type(self):
@@ -204,21 +201,18 @@ class AgentPolicyV7(AgentWithModel):
         # 0) Whether is this the unit making the decision
         #
         # 1) Unit cargo level
-        # 21) Unit fuel level
         #
         # 2) Existence of self unit(excluding the decision - making unit)
         #
         # 3) Self unit cooldown level
         #
         # 4) Self unit cargo level
-        # 22) Self unit fuel level
         #
         # 5) Existence of opponent unit
         #
         # 6) Opponent unit cooldown level
         #
         # 7) Opponent unit cargo level
-        # 23) Opponent unit fuel level
         #
         # 8) Existence of self city
         #
@@ -244,7 +238,6 @@ class AgentPolicyV7(AgentWithModel):
         # 19) Whether is it out of bounds in the map
         #
         # 20) Whether is this the city_tile making the decision
-
         obs = np.zeros(self.observation_shape, dtype=np.uint8)
         x_shift = (32 - game.map.width) // 2
         y_shift = (32 - game.map.height) // 2
@@ -253,9 +246,6 @@ class AgentPolicyV7(AgentWithModel):
         #   0) Whether is this the unit making the decision
         if unit is not None:
             obs[0][x_shift + unit.pos.x][y_shift + unit.pos.y] = 255
-            # 1) Unit cargo level
-            obs[1][x_shift + unit.pos.x][y_shift + unit.pos.y] = min(1, ((100 - unit.get_cargo_space_left()) / 100)) * 255
-            obs[21][x_shift + unit.pos.x][y_shift + unit.pos.y] = min(1, unit.get_cargo_fuel_value() / 4000) * 255
         # 20) Whether is this the city_tile making the decision
         if city_tile is not None:
             obs[20][x_shift + city_tile.pos.x][y_shift + city_tile.pos.y] = 255
@@ -263,24 +253,22 @@ class AgentPolicyV7(AgentWithModel):
         # Units channels
         for t in [team, (team + 1) % 2]:
             for u in game.state["teamStates"][t]["units"].values():
+                # 1) Unit cargo level
+                obs[1][x_shift + u.pos.x][y_shift + u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
                 if t == team:
-                    if u == unit:
-                        continue
                     # 2) Existence of self unit(excluding the decision - making unit)
                     obs[2][x_shift + u.pos.x][y_shift + u.pos.y] = 255
                     # 3) Self unit cooldown level
                     obs[3][x_shift + u.pos.x][y_shift + u.pos.y] = (u.cooldown / 6) * 255
                     # 4) Self unit cargo level
-                    obs[4][x_shift + u.pos.x][y_shift + u.pos.y] = min(1, ((100 - u.get_cargo_space_left()) / 100)) * 255
-                    obs[22][x_shift + u.pos.x][y_shift + u.pos.y] = min(1, u.get_cargo_fuel_value() / 4000) * 255
+                    obs[4][x_shift + u.pos.x][y_shift + u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
                 else:
                     # 5) Existence of opponent unit
                     obs[5][x_shift + u.pos.x][y_shift + u.pos.y] = 255
                     # 6) Opponent unit cooldown level
                     obs[6][x_shift + u.pos.x][y_shift + u.pos.y] = (u.cooldown / 6) * 255
                     # 7) Opponent unit cargo level
-                    obs[7][x_shift + u.pos.x][y_shift + u.pos.y] = min(1, ((100 - u.get_cargo_space_left()) / 100)) * 255
-                    obs[23][x_shift + u.pos.x][y_shift + u.pos.y] = min(1, u.get_cargo_fuel_value() / 4000) * 255
+                    obs[7][x_shift + u.pos.x][y_shift + u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
 
         # City channels
         # 8) Existence of self city
