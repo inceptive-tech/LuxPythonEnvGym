@@ -115,9 +115,9 @@ def train(args):
     configs = LuxMatchConfigs_Default
 
     # Create a default opponent agent
-    # opponent = KaggleAgent()
-    other_model = PPO.load("./ref_models/model_7_3", device='cpu')
-    opponent = AgentPolicy(mode="inference", model=other_model)
+    opponent = KaggleAgent()
+    #other_model = PPO.load("./ref_models/model_7_3", device='cpu')
+    #opponent = AgentPolicy(mode="inference", model=other_model)
 
     # Create a RL agent in training mode
     player = AgentPolicy(mode="train")
