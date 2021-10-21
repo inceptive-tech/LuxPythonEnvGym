@@ -103,7 +103,7 @@ def smart_transfer_to_nearby(game, team, unit_id, unit, target_type_restriction=
 ########################################################################################################################
 # This is the Agent that you need to design for the competition
 ########################################################################################################################
-class AgentPolicy(AgentWithModel):
+class AgentPolicyV7(AgentWithModel):
     def __init__(self, mode="train", model=None) -> None:
         """
         Arguments:
