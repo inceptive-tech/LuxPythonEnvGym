@@ -1,4 +1,5 @@
-source_model="../cnn_example/ref_models/model_7_8.zip"
+modelName="model_8_1beta3"
+source_model=../cnn_example/ref_models/"$modelName".zip
 source_agent="../cnn_example/agent_policy.py"
 rewards_location="../cnn_example/rewards"
-target_name="model_7_8.tar.gz"
+target_name="$modelName".tar.gz
