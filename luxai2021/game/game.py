@@ -8,6 +8,7 @@ import traceback
 from luxai2021.game.actions import MoveAction, PillageAction, SpawnCartAction, SpawnCityAction, SpawnWorkerAction, \
     ResearchAction, TransferAction
 from .city import City
+from .position import Position
 from .constants import Constants, LuxMatchConfigs_Default
 from .game_map import GameMap
 from .unit import Worker, Cart
@@ -15,6 +16,8 @@ from .unit import Worker, Cart
 INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 DIRECTIONS = Constants.DIRECTIONS
 
+class MatchWarn(Exception):
+    pass
 
 class Game:
     def __init__(self, configs=None, agents=[]):
@@ -392,7 +395,7 @@ class Game:
             False if game is over
         """
         if "log" in self.configs and self.configs["log"]:
-            self.log('Processing turn ' + self.game.state["turn"])
+            self.log('Processing turn ' + str(self.state["turn"]))
 
         if self.replay:
             # Log actions to a replay
@@ -648,8 +651,76 @@ class Game:
         if accumulated_action_stats is None:
             accumulated_action_stats = self._gen_initial_accumulated_action_stats()
 
+        acc = accumulated_action_stats[cmd.team]
         # TODO: IMPLEMENT THIS
-        return cmd
+        if isinstance(cmd, SpawnCityAction):
+            unit = self.get_unit(cmd.team, cmd.unit_id)
+            if unit is None:
+                raise MatchWarn("Agent tried to build CityTile with invalid/unowned unit id: {}".format(cmd.unit_id))
+            cell = self.map.get_cell_by_pos(unit.pos)
+            
+            if cell.is_city_tile():
+                raise MatchWarn("Agent tried to build CityTile on existing CityTile")
+                
+            if cell.has_resource():
+                raise MatchWarn("Agent tried to build CityTile on non-empty resource tile")
+            if not unit.can_act():
+                raise MatchWarn("Agent tried to build CityTile with cooldown: {}".format(unit.cooldown))
+                
+            cargoTotal = unit.cargo['wood'] + unit.cargo['coal']+ unit.cargo['uranium']
+            
+            if cargoTotal < self.configs['parameters']['CITY_BUILD_COST']:
+                raise MatchWarn("Agent tried to build CityTile with insufficient materials wood + coal + uranium: {}".format(cargoTotal))
+            acc['actionsPlaced'].add(cmd.unit_id)
+            return cmd
+        elif isinstance(cmd, MoveAction):
+            unit = self.get_unit(cmd.team, cmd.unit_id)
+            if unit is None:
+                raise MatchWarn("Agent tried to move unit {} that it does not own".format(cmd.unit_id))
+            if not unit.can_move():
+                raise MatchWarn("Agent tried to move unit {} with cooldown: {}".format(cmd.unit_id, unit.cooldown))
+            if not cmd.direction in [ Constants.DIRECTIONS.CENTER,
+                                     Constants.DIRECTIONS.EAST,
+                                     Constants.DIRECTIONS.NORTH,
+                                     Constants.DIRECTIONS.SOUTH,
+                                     Constants.DIRECTIONS.WEST ]:
+                raise MatchWarn("Agent tried to move unit {} in invalid direction {}".format(cmd.unit_id, cmd.direction))
+            if cmd.direction != Constants.DIRECTIONS.CENTER:
+                new_pos = unit.pos.translate(cmd.direction, 1)
+                if not self.map.in_map(new_pos):
+                    raise MatchWarn("Agent tried to move unit {} off map".format(cmd.unit_id))
+                if self.map.get_cell_by_pos(new_pos).is_city_tile() and self.map.get_cell_by_pos(new_pos).city_tile.team != cmd.team:
+                        raise MatchWarn("Agent tried to move unit {} onto opponent CityTile".format(cmd.unit_id))
+            acc['actionsPlaced'].add(cmd.unit_id)
+            return cmd
+        elif isinstance(cmd, SpawnWorkerAction) or isinstance(cmd, SpawnCartAction):
+            if not self.map.in_map(Position(cmd.x, cmd.y)):
+                raise MatchWarn("Agent tried to build unit with invalid coordinates")
+            cell = self.map.get_cell(cmd.x, cmd.y)
+            if (not cell.is_city_tile()) ^ (cell.city_tile.team != cmd.team):
+                raise MatchWarn("Agent tried to build unit on tile ({}, {}) that it does not own".format(cmd.x, cmd.y))
+            city_tile = cell.city_tile
+            if not city_tile.can_build_unit():
+                raise MatchWarn("Agent tried to build unit on tile ({}, {}) but CityTile still with cooldown of {}".format(cmd.x, cmd.y, city_tile.cooldown))
+            if isinstance(cmd, SpawnCartAction):
+                if self.cart_unit_cap_reached(cmd.team, acc['cartsBuilt'] + acc['workersBuilt']):
+                    raise MatchWarn("Agent tried to build cart on tile ({}, {}) but unit cap reached. Build more CityTiles!".format(cmd.x, cmd.y))
+            else: # SpawnWorkerAction
+                if self.worker_unit_cap_reached(cmd.team, acc['cartsBuilt'] + acc['workersBuilt']):
+                    raise MatchWarn("Agent tried to build worker on tile ({}, {}) but unit cap reached. Build more CityTiles!".format(cmd.x, cmd.y))
+            
+            acc['actionsPlaced'].add(city_tile.get_tile_id())
+            if isinstance(cmd, SpawnCartAction):
+                acc['cartsBuilt'] += 1
+                return cmd
+            else:
+                acc['workersBuilt'] += 1
+                return cmd
+        
+            
+        else:        
+            # no check. bad.
+            return cmd
 
     def worker_unit_cap_reached(self, team, offset=0):
         """
