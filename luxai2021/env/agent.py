@@ -135,6 +135,60 @@ class AgentFromReplay(Agent):
         return actions
 
 
+class OneOfAgent(Agent):
+
+    def __init__(self, agents=[]) -> None:
+        """
+        Implements an agent opponent
+        """
+        super().__init__()
+        self.current_index = 0
+        self.agents = agents
+        self.current_agent = None
+        self.team = None
+        self.match_controller = None
+
+
+    def game_start(self, game):
+        self.current_agent = self.agents[self.current_index % len(self.agents)]
+        print(f"Changing agent to {self.current_index % len(self.agents)}", file=sys.stderr)
+        self.current_agent.set_team(self.team)
+        self.current_agent.set_controller(self.match_controller)
+        self.current_agent.game_start(game)
+        self.current_index += 1
+
+    def process_turn(self, game, team):
+        return self.current_agent.process_turn(game, team)
+
+    def pre_turn(self, game, is_first_turn=False):
+        return self.current_agent.pre_turn(game, is_first_turn)
+
+    def post_turn(self, game, actions):
+        return self.current_agent.post_turn(game, actions)
+
+    def turn_heurstics(self, game, is_first_turn):
+        return self.current_agent.turn_heurstics(game, is_first_turn)
+
+    def get_agent_type(self):
+        """
+        Returns the type of agent. Use AGENT for inference, and LEARNING for training a model.
+        """
+        return Constants.AGENT_TYPE.AGENT
+
+    def set_team(self, team):
+        """
+        Sets the team id that this agent is controlling
+        :param team:
+        """
+        self.team = team
+
+    def set_controller(self, match_controller):
+        """
+        """
+        self.match_controller = match_controller
+
+
+
 class KaggleAgent(Agent):
 
     def __init__(self) -> None:
