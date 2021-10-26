@@ -3,7 +3,7 @@ cur_folder=$(pwd)
 
 # Copy files
 cp "$source_model" ../kaggle_submissions/model.zip
-cp "$source_agent" ../kaggle_submissions
+cp "$source_agent" ../kaggle_submissions/agent_policy.py
 cp -r "$rewards_location" ../kaggle_submissions
 
 #Check dependencies
