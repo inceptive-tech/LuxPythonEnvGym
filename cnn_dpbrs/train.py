@@ -21,7 +21,12 @@ from stable_baselines3.common.utils import set_random_seed, get_schedule_fn
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from agent_policy import AgentPolicy
-from luxai2021.env.agent import Agent, KaggleAgent
+from opponent7.agent_policy import AgentPolicy as AgentPolicyOpp7
+from opponent7_2.agent_policy import AgentPolicy as AgentPolicyOpp7_2
+from opponent7_3.agent_policy import AgentPolicy as AgentPolicyOpp7_3
+from opponent7_6.agent_policy import AgentPolicy as AgentPolicyOpp7_6
+from opponent7_8.agent_policy import AgentPolicy as AgentPolicyOpp7_8
+from luxai2021.env.agent import Agent, KaggleAgent, OneOfAgent
 from luxai2021.env.lux_env import LuxEnvironment, SaveReplayAndModelCallback
 from luxai2021.game.constants import LuxMatchConfigs_Default
 
@@ -53,18 +58,18 @@ class CustomCNN(BaseFeaturesExtractor):
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
         n_input_channels = observation_space.shape[0]
-        layers, filters = 3, 8
+        layers, filters = 12, 32
         self.conv0 = BasicConv2d(n_input_channels, filters, (3, 3), True)
         self.blocks = nn.ModuleList([BasicConv2d(filters, filters, (3, 3), True) for _ in range(layers)])
-        #self.head_p = nn.Linear(filters, features_dim, bias=False)
+        self.head_p = nn.Linear(filters, features_dim, bias=False)
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
         h = F.relu_(self.conv0(observations))
         for block in self.blocks:
             h = F.relu_(h + block(h))
         h_head = (h * observations[:, :1]).view(h.size(0), h.size(1), -1).sum(-1)
-        #p = self.head_p(h_head)
-        return h_head
+        p = self.head_p(h_head)
+        return p
 
 # https://stable-baselines3.readthedocs.io/en/master/guide/examples.html?highlight=SubprocVecEnv#multiprocessing-unleashing-the-power-of-vectorized-environments
 def make_env(local_env, rank, seed=0):
@@ -115,9 +120,18 @@ def train(args):
     configs = LuxMatchConfigs_Default
 
     # Create a default opponent agent
-    opponent = KaggleAgent()
-    #other_model = PPO.load("./models/modelmodel74_against72_from72_ppo25_step600000", device='cpu')
-    #opponent = AgentPolicy(mode="inference", model=other_model)
+    #opponent = KaggleAgent()
+    #other_model = PPO.load("./opponent/model", device='cpu')
+    #opponent = AgentPolicyOpp(mode="inference", model=other_model)
+
+    opponent = OneOfAgent([
+        KaggleAgent(),
+        AgentPolicyOpp7(mode="inference", model=PPO.load("./opponent7/model", device='cpu')),
+        AgentPolicyOpp7_2(mode="inference", model=PPO.load("./opponent7_2/model", device='cpu')),
+        AgentPolicyOpp7_3(mode="inference", model=PPO.load("./opponent7_3/model", device='cpu')),
+        AgentPolicyOpp7_6(mode="inference", model=PPO.load("./opponent7_6/model", device='cpu')),
+        AgentPolicyOpp7_8(mode="inference", model=PPO.load("./opponent7_8/model", device='cpu'))
+       ])
 
     # Create a RL agent in training mode
     player = AgentPolicy(mode="train")
@@ -128,6 +142,7 @@ def train(args):
         env = LuxEnvironment(configs=configs,
                              learning_agent=player,
                              opponent_agent=opponent)
+
     else:
         env = SubprocVecEnv([make_env(LuxEnvironment(configs=configs,
                                                      learning_agent=AgentPolicy(mode="train"),
@@ -148,8 +163,8 @@ def train(args):
     else:
         policy_kwargs = dict(
             features_extractor_class=CustomCNN,
-            features_extractor_kwargs=dict(features_dim=8),
-            net_arch=[dict(pi=[], vf=[])],
+            features_extractor_kwargs=dict(features_dim=32),
+            net_arch=[dict(pi=[16, 16], vf=[16, 16])],
         )
         model = PPO("CnnPolicy",
                     env,
@@ -171,18 +186,14 @@ def train(args):
     callbacks = []
 
     # Save a checkpoint and 5 match replay files every 100K steps
-    player_replay = AgentPolicy(mode="inference", model=model)
+    #player_replay = AgentPolicy(mode="inference", model=model)
     callbacks.append(
         SaveReplayAndModelCallback(
                                 save_freq=100000,
                                 save_path='./models/',
                                 name_prefix=f'model{run_id}',
-                                replay_env=LuxEnvironment(
-                                                configs=configs,
-                                                learning_agent=player_replay,
-                                                opponent_agent=KaggleAgent()
-                                ),
-                                replay_num_episodes=5
+                                replay_env=None,
+                                replay_num_episodes=0
                             )
     )
 

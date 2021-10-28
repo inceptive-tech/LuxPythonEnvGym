@@ -178,7 +178,7 @@ class AgentPolicy(AgentWithModel):
         # 19) Whether is it out of bounds in the map
         #
         # 20) Whether is this the city_tile making the decision
-        self.observation_shape = (21, 32, 32)
+        self.observation_shape = (24, 32, 32)
         self.observation_space = spaces.Box(low=0, high=255, shape=self.observation_shape, dtype=np.uint8)
 
     def get_agent_type(self):
@@ -246,6 +246,9 @@ class AgentPolicy(AgentWithModel):
         #   0) Whether is this the unit making the decision
         if unit is not None:
             obs[0][x_shift + unit.pos.x][y_shift + unit.pos.y] = 255
+            # 1) Unit cargo level
+            obs[1][x_shift + unit.pos.x][y_shift + unit.pos.y] = min(1, ((100 - unit.get_cargo_space_left()) / 100)) * 255
+            obs[21][x_shift + unit.pos.x][y_shift + unit.pos.y] = min(1, unit.get_cargo_fuel_value() / 4000) * 255
         # 20) Whether is this the city_tile making the decision
         if city_tile is not None:
             obs[20][x_shift + city_tile.pos.x][y_shift + city_tile.pos.y] = 255
@@ -253,22 +256,24 @@ class AgentPolicy(AgentWithModel):
         # Units channels
         for t in [team, (team + 1) % 2]:
             for u in game.state["teamStates"][t]["units"].values():
-                # 1) Unit cargo level
-                obs[1][x_shift + u.pos.x][y_shift + u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
                 if t == team:
+                    if u == unit:
+                        continue
                     # 2) Existence of self unit(excluding the decision - making unit)
                     obs[2][x_shift + u.pos.x][y_shift + u.pos.y] = 255
                     # 3) Self unit cooldown level
                     obs[3][x_shift + u.pos.x][y_shift + u.pos.y] = (u.cooldown / 6) * 255
                     # 4) Self unit cargo level
-                    obs[4][x_shift + u.pos.x][y_shift + u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
+                    obs[4][x_shift + u.pos.x][y_shift + u.pos.y] = min(1, ((100 - u.get_cargo_space_left()) / 100)) * 255
+                    obs[22][x_shift + u.pos.x][y_shift + u.pos.y] = min(1, u.get_cargo_fuel_value() / 4000) * 255
                 else:
                     # 5) Existence of opponent unit
                     obs[5][x_shift + u.pos.x][y_shift + u.pos.y] = 255
                     # 6) Opponent unit cooldown level
                     obs[6][x_shift + u.pos.x][y_shift + u.pos.y] = (u.cooldown / 6) * 255
                     # 7) Opponent unit cargo level
-                    obs[7][x_shift + u.pos.x][y_shift + u.pos.y] = ((100 - u.get_cargo_space_left()) / 100) * 255
+                    obs[7][x_shift + u.pos.x][y_shift + u.pos.y] = min(1, ((100 - u.get_cargo_space_left()) / 100)) * 255
+                    obs[23][x_shift + u.pos.x][y_shift + u.pos.y] = min(1, u.get_cargo_fuel_value() / 4000) * 255
 
         # City channels
         # 8) Existence of self city
@@ -409,7 +414,7 @@ class AgentPolicy(AgentWithModel):
         if is_game_error:
             # Game environment step failed, assign a game lost reward to not incentivise this
             print("Game failed due to error")
-            return -1.0
+            return 0.0
 
         if not is_new_turn and not is_game_finished:
             # Only apply rewards at the start of each turn or at game end
@@ -529,9 +534,12 @@ class AgentPolicy(AgentWithModel):
 
         potential_value = 0
         for name, value in potential.items():
-            potential_value += value
+            if value > 0:
+                potential_value += value
 
-        res = self.gamma * potential_value - self.prev_potential + reward
+        res = self.gamma * potential_value - self.prev_potential
+        if reward > 0:
+            res += reward
         self.prev_potential = potential_value
         return res
 
